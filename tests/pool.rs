@@ -1,4 +1,4 @@
-use deadpool_scylla::{Config, Manager, ManagerConfig, Pool};
+use deadpool_scylla::{Config, Manager, Pool};
 use futures::future::join_all;
 use log::*;
 use std::time::Duration;
@@ -7,10 +7,7 @@ async fn setup_pool(max_size: usize, connection_timeout: Duration) -> Pool {
     let config = Config::new(vec!["127.0.0.1".into()], 9042, "mykeyspace".into())
         .with_connection_timeout(connection_timeout);
 
-    let manager_config = ManagerConfig::default();
-    let manager = Manager::new(config, manager_config);
-
-    Pool::builder(manager)
+    Pool::builder(Manager::new(config))
         .max_size(max_size)
         .build()
         .expect("Failed to create pool.")

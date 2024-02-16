@@ -329,6 +329,7 @@ dependencies = [
  "env_logger",
  "futures",
  "log",
+ "rand_chacha",
  "scylla",
  "serde",
  "tokio",

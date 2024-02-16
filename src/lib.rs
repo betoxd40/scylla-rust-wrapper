@@ -2,31 +2,30 @@
 #![forbid(unsafe_code)]
 
 mod config;
-mod generic_client;
 
 use async_trait::async_trait;
 use deadpool::managed;
-use scylla::{serialize::row::SerializeRow, transport::errors::QueryError, QueryResult, Session, SessionBuilder};
+use scylla::transport::downgrading_consistency_retry_policy::DowngradingConsistencyRetryPolicy;
+use scylla::ExecutionProfile;
+use scylla::{
+    serialize::row::SerializeRow, transport::errors::QueryError, QueryResult, Session,
+    SessionBuilder,
+};
+use std::ops::{Deref, DerefMut};
 use std::sync::Arc;
 use tokio::sync::Mutex;
-use std::ops::{Deref, DerefMut};
 
-pub use self::config::{Config, ManagerConfig};
-pub use scylla;
+pub use self::config::Config;
 pub use deadpool::managed::reexports::*;
-pub use self::generic_client::GenericClient;
+pub use scylla;
 
 pub struct Manager {
-    config: ManagerConfig,
-    scylla_config: Config,
+    config: Config,
 }
 
 impl Manager {
-    pub fn new(scylla_config: Config, manager_config: ManagerConfig) -> Self {
-        Self {
-            config: manager_config,
-            scylla_config,
-        }
+    pub fn new(config: Config) -> Self {
+        Self { config }
     }
 }
 
@@ -38,9 +37,15 @@ impl managed::Manager for Manager {
     type Error = Box<dyn std::error::Error>;
 
     async fn create(&self) -> Result<Self::Type, Self::Error> {
+        let handle = ExecutionProfile::builder()
+            .retry_policy(Box::new(DowngradingConsistencyRetryPolicy::new()))
+            .build()
+            .into_handle();
+
         let session = SessionBuilder::new()
-            .known_nodes(&self.scylla_config.hosts)
-            .use_keyspace(&self.scylla_config.keyspace, false)
+            .known_nodes(&self.config.hosts)
+            .use_keyspace(&self.config.keyspace, false)
+            .default_execution_profile_handle(handle)
             .build()
             .await?;
         Ok(ClientWrapper::new(session))
@@ -76,8 +81,8 @@ impl ClientWrapper {
     }
 
     pub async fn query(
-        &self, 
-        statement: &str, 
+        &self,
+        statement: &str,
         values: impl SerializeRow + Send + Sync,
     ) -> Result<QueryResult, QueryError> {
         let session = self.session.lock().await;

@@ -1,4 +1,4 @@
-use deadpool_scylla::{Config, Manager, ManagerConfig, Pool};
+use deadpool_scylla::{Config, Manager, Pool};
 use futures::future::join_all;
 use scylla::{
     transport::downgrading_consistency_retry_policy::DowngradingConsistencyRetryPolicy,
@@ -23,11 +23,10 @@ async fn create_session_with_downgrading_policy() -> Result<Session, Box<dyn std
 }
 
 async fn setup_pool(max_size: usize, connection_timeout: Duration) -> Pool {
-    let config = Config::new(vec!["127.0.0.1".into()], 9042, "mykeyspace".into())
+    let config: Config = Config::new(vec!["127.0.0.1".into()], 9042, "mykeyspace".into())
         .with_connection_timeout(connection_timeout);
 
-    let manager_config = ManagerConfig::default();
-    let manager = Manager::new(config, manager_config);
+    let manager = Manager::new(config);
 
     Pool::builder(manager)
         .max_size(max_size)
@@ -39,10 +38,7 @@ async fn setup_pool_for_timeout() -> Pool {
     let config = Config::new(vec!["10.255.255.1".into()], 9042, "mykeyspace".into())
         .with_connection_timeout(Duration::from_secs(1)); // Adjust timeout as needed
 
-    let manager_config = ManagerConfig::default();
-    let manager = Manager::new(config, manager_config);
-
-    Pool::builder(manager)
+    Pool::builder(Manager::new(config))
         .max_size(1)
         .build()
         .expect("Failed to create pool.")
