@@ -5,8 +5,8 @@ mod config;
 
 use async_trait::async_trait;
 use deadpool::managed;
+use scylla::frame::value::ValueList;
 use scylla::prepared_statement::PreparedStatement;
-use scylla::query::Query;
 use scylla::transport::downgrading_consistency_retry_policy::DowngradingConsistencyRetryPolicy;
 use scylla::ExecutionProfile;
 use scylla::{
@@ -96,14 +96,19 @@ impl ClientWrapper {
         session.prepare(statement).await
     }
 
-    pub async fn execute(&self, statement: &PreparedStatement) -> Result<(), QueryError> {
+    pub async fn execute(
+        &self,
+        statement: &PreparedStatement,
+        values: Option<impl SerializeRow + Sync + Send>,
+    ) -> Result<(), QueryError> {
         let session = self.session.lock().await;
-        // Execute the prepared statement without binding additional values
-        session
-            .execute(statement, &[])
-            .await
-            .map(|_| ())
-            .map_err(Into::into)
+        // Execute the prepared statement with or without values
+        match values {
+            Some(v) => session.execute(statement, v).await,
+            None => session.execute(statement, ()).await, // Pass an empty tuple if no values are provided
+        }
+        .map(|_| ())
+        .map_err(Into::into)
     }
 }
 
