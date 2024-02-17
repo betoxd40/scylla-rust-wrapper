@@ -5,6 +5,8 @@ mod config;
 
 use async_trait::async_trait;
 use deadpool::managed;
+use scylla::prepared_statement::PreparedStatement;
+use scylla::query::Query;
 use scylla::transport::downgrading_consistency_retry_policy::DowngradingConsistencyRetryPolicy;
 use scylla::ExecutionProfile;
 use scylla::{
@@ -87,6 +89,21 @@ impl ClientWrapper {
     ) -> Result<QueryResult, QueryError> {
         let session = self.session.lock().await;
         session.query(statement, values).await
+    }
+
+    pub async fn prepare(&self, statement: &str) -> Result<PreparedStatement, QueryError> {
+        let session = self.session.lock().await;
+        session.prepare(statement).await
+    }
+
+    pub async fn execute(&self, statement: &PreparedStatement) -> Result<(), QueryError> {
+        let session = self.session.lock().await;
+        // Execute the prepared statement without binding additional values
+        session
+            .execute(statement, &[])
+            .await
+            .map(|_| ())
+            .map_err(Into::into)
     }
 }
 
