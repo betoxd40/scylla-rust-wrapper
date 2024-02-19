@@ -4,8 +4,14 @@ use log::*;
 use std::time::Duration;
 
 async fn setup_pool(max_size: usize, connection_timeout: Duration) -> Pool {
-    let config = Config::new(vec!["127.0.0.1".into()], 9042, "mykeyspace".into())
-        .with_connection_timeout(connection_timeout);
+    let config = Config::new(
+        vec!["127.0.0.1".into()],
+        9042,
+        "mykeyspace".into(),
+        String::from("username"),
+        String::from("password"),
+    )
+    .with_connection_timeout(connection_timeout);
 
     Pool::builder(Manager::new(config))
         .max_size(max_size)

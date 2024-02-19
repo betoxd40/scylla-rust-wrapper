@@ -23,14 +23,14 @@ pub struct Config {
 
 impl Config {
     /// Creates a new `Config` instance with default settings.
-    pub fn new(hosts: Vec<String>, port: u16, keyspace: String) -> Self {
+    pub fn new(hosts: Vec<String>, port: u16, keyspace: String, username: String, password: String) -> Self {
         Config {
             hosts,
             port,
             keyspace,
-            username: None,
-            password: None,
-            connection_timeout: Some(Duration::from_secs(5)),
+            username: Some(username),
+            password: Some(password),
+            connection_timeout: Some(Duration::from_secs(60)),
             use_ssl: false,
         }
     }

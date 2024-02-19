@@ -23,8 +23,14 @@ async fn create_session_with_downgrading_policy() -> Result<Session, Box<dyn std
 }
 
 async fn setup_pool(max_size: usize, connection_timeout: Duration) -> Pool {
-    let config: Config = Config::new(vec!["127.0.0.1".into()], 9042, "mykeyspace".into())
-        .with_connection_timeout(connection_timeout);
+    let config = Config::new(
+        vec!["127.0.0.1".into()],
+        9042,
+        "mykeyspace".into(),
+        String::from("username"),
+        String::from("password"),
+    )
+    .with_connection_timeout(connection_timeout);
 
     let manager = Manager::new(config);
 
@@ -35,8 +41,14 @@ async fn setup_pool(max_size: usize, connection_timeout: Duration) -> Pool {
 }
 
 async fn setup_pool_for_timeout() -> Pool {
-    let config = Config::new(vec!["10.255.255.1".into()], 9042, "mykeyspace".into())
-        .with_connection_timeout(Duration::from_secs(1)); // Adjust timeout as needed
+    let config = Config::new(
+        vec!["127.0.0.1".into()],
+        9042,
+        "mykeyspace".into(),
+        String::from("username"),
+        String::from("password"),
+    )
+    .with_connection_timeout(Duration::from_secs(1)); // Adjust timeout as needed
 
     Pool::builder(Manager::new(config))
         .max_size(1)

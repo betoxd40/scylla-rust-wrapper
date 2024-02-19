@@ -33,8 +33,14 @@ async fn delete_test_table(pool: Arc<Pool>) {
 }
 
 async fn setup_pool() -> Pool {
-    let config = Config::new(vec!["127.0.0.1".into()], 9042, "mykeyspace".into())
-        .with_connection_timeout(Duration::from_secs(10));
+    let config = Config::new(
+        vec!["127.0.0.1".into()],
+        9042,
+        "mykeyspace".into(),
+        String::from("username"),
+        String::from("password"),
+    )
+    .with_connection_timeout(Duration::from_secs(10));
 
     let manager = Manager::new(config);
     Pool::builder(manager).max_size(20).build().unwrap()
