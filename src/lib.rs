@@ -5,21 +5,19 @@ mod config;
 
 use async_trait::async_trait;
 use deadpool::managed;
-use scylla::frame::value::ValueList;
+use openssl::ssl::{SslContextBuilder, SslFiletype, SslMethod, SslVerifyMode};
 use scylla::prepared_statement::PreparedStatement;
 use scylla::transport::downgrading_consistency_retry_policy::DowngradingConsistencyRetryPolicy;
 use scylla::ExecutionProfile;
-use scylla::{
-    serialize::row::SerializeRow, transport::errors::QueryError, QueryResult, Session,
-    SessionBuilder,
-};
+use scylla::SessionBuilder;
+use scylla::{serialize::row::SerializeRow, transport::errors::QueryError, QueryResult, Session};
 use std::ops::{Deref, DerefMut};
+use std::path::Path;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
 pub use self::config::Config;
 pub use deadpool::managed::reexports::*;
-pub use scylla;
 
 pub struct Manager {
     config: Config,
@@ -39,18 +37,40 @@ impl managed::Manager for Manager {
     type Error = Box<dyn std::error::Error>;
 
     async fn create(&self) -> Result<Self::Type, Self::Error> {
+        let mut session_builder: SessionBuilder = SessionBuilder::new()
+            .known_nodes(&self.config.hosts)
+            .use_keyspace(&self.config.keyspace, false);
+
+        // Check if username and password are provided for authentication
+        if let (Some(username), Some(password)) = (&self.config.username, &self.config.password) {
+            session_builder = session_builder.user(username, password);
+        }
+
+        // Configure SSL/TLS if enabled
+        if self.config.use_ssl {
+            let mut context_builder = SslContextBuilder::new(SslMethod::tls())
+                .map_err(|e| format!("Failed to create SSL context builder: {}", e))?;
+
+            if let Some(ca_cert) = &self.config.ca_cert {
+                context_builder
+                    .set_certificate_file(Path::new(ca_cert), SslFiletype::PEM)
+                    .map_err(|e| format!("Failed to set CA certificate: {}", e))?;
+                context_builder.set_verify(SslVerifyMode::NONE);
+            }
+
+            let ssl_context: openssl::ssl::SslContext = context_builder.build();
+            session_builder = session_builder.ssl_context(Some(ssl_context));
+        }
+
         let handle = ExecutionProfile::builder()
             .retry_policy(Box::new(DowngradingConsistencyRetryPolicy::new()))
             .build()
             .into_handle();
 
-        let session = SessionBuilder::new()
-            .known_nodes(&self.config.hosts)
-            .use_keyspace(&self.config.keyspace, false)
-            .default_execution_profile_handle(handle)
-            .build()
-            .await?;
-        Ok(ClientWrapper::new(session))
+        session_builder = session_builder.default_execution_profile_handle(handle);
+
+        // Finally, build the session
+        Ok(ClientWrapper::new(session_builder.build().await?))
     }
 
     async fn recycle(
