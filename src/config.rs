@@ -18,7 +18,8 @@ pub struct Config {
     pub connection_timeout: Option<Duration>,
     /// Whether to use SSL/TLS.
     pub use_ssl: bool,
-    // Add additional parameters as needed.
+    /// Path to the CA certificate, if using SSL/TLS.
+    pub ca_cert: Option<String>,    
 }
 
 impl Config {
@@ -32,13 +33,27 @@ impl Config {
             password: Some(password),
             connection_timeout: Some(Duration::from_secs(60)),
             use_ssl: false,
+            ca_cert: None,
         }
     }
 
-    /// Sets the authentication credentials.
     pub fn with_auth(mut self, username: String, password: String) -> Self {
         self.username = Some(username);
         self.password = Some(password);
+        self
+    }
+
+    pub fn with_auth_and_cert(mut self, username: String, password: String, cert: String) -> Self {
+        self.username = Some(username);
+        self.password = Some(password);
+        self.use_ssl = true;
+        self.ca_cert = Some(cert);
+        self
+    }
+
+    pub fn with_ca_cert(mut self, cert: String) -> Self {
+        self.use_ssl = true;
+        self.ca_cert = Some(cert);
         self
     }
 
