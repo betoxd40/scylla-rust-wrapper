@@ -6,11 +6,14 @@ mod config;
 use async_trait::async_trait;
 use deadpool::managed;
 use openssl::ssl::{SslContextBuilder, SslFiletype, SslMethod, SslVerifyMode};
+use scylla::frame::value::ValueList;
 use scylla::prepared_statement::PreparedStatement;
 use scylla::transport::downgrading_consistency_retry_policy::DowngradingConsistencyRetryPolicy;
 use scylla::ExecutionProfile;
-use scylla::SessionBuilder;
-use scylla::{serialize::row::SerializeRow, transport::errors::QueryError, QueryResult, Session};
+use scylla::{
+    serialize::row::SerializeRow, transport::errors::QueryError, QueryResult, Session,
+    SessionBuilder,
+};
 use std::ops::{Deref, DerefMut};
 use std::path::Path;
 use std::sync::Arc;
@@ -18,6 +21,7 @@ use tokio::sync::Mutex;
 
 pub use self::config::Config;
 pub use deadpool::managed::reexports::*;
+pub use scylla;
 
 pub struct Manager {
     config: Config,
