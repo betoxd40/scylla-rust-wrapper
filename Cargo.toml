@@ -21,7 +21,3 @@ openssl = "0.10.63"
 
 [lib]
 path = "src/lib.rs"
-
-[[bin]]
-name = "stress_test"
-path = "src/stress_test.rs"

@@ -41,29 +41,32 @@ impl managed::Manager for Manager {
     type Error = Box<dyn std::error::Error>;
 
     async fn create(&self) -> Result<Self::Type, Self::Error> {
-        let mut session_builder: SessionBuilder = SessionBuilder::new()
-            .known_nodes(&self.config.hosts)
+        let host = self.config.hosts.first().unwrap();
+        let port = self.config.port;
+        let host_and_port = format!("{}:{}", host, port);
+
+        let mut session_builder = scylla::SessionBuilder::new()
+            .known_node(host_and_port)
             .use_keyspace(&self.config.keyspace, false);
 
-        // Check if username and password are provided for authentication
+            // .known_nodes(&self.config.hosts)
+            // .use_keyspace(&self.config.keyspace, false);
+
         if let (Some(username), Some(password)) = (&self.config.username, &self.config.password) {
             session_builder = session_builder.user(username, password);
         }
 
-        // Configure SSL/TLS if enabled
         if self.config.use_ssl {
-            let mut context_builder = SslContextBuilder::new(SslMethod::tls())
-                .map_err(|e| format!("Failed to create SSL context builder: {}", e))?;
-
             if let Some(ca_cert) = &self.config.ca_cert {
-                context_builder
-                    .set_certificate_file(Path::new(ca_cert), SslFiletype::PEM)
-                    .map_err(|e| format!("Failed to set CA certificate: {}", e))?;
-                context_builder.set_verify(SslVerifyMode::NONE);
-            }
+                let mut ssl_context_builder = SslContextBuilder::new(SslMethod::tls()).unwrap();
+                ssl_context_builder
+                    .set_certificate_file(ca_cert, SslFiletype::PEM)
+                    .unwrap();
+                ssl_context_builder.set_verify(SslVerifyMode::NONE);
 
-            let ssl_context: openssl::ssl::SslContext = context_builder.build();
-            session_builder = session_builder.ssl_context(Some(ssl_context));
+                let ssl_context = ssl_context_builder.build();
+                session_builder = session_builder.ssl_context(Some(ssl_context));
+            }
         }
 
         let handle = ExecutionProfile::builder()
@@ -73,8 +76,8 @@ impl managed::Manager for Manager {
 
         session_builder = session_builder.default_execution_profile_handle(handle);
 
-        // Finally, build the session
-        Ok(ClientWrapper::new(session_builder.build().await?))
+        let session = session_builder.build().await.map_err(|e| e.to_string())?;
+        Ok(ClientWrapper::new(session))
     }
 
     async fn recycle(
