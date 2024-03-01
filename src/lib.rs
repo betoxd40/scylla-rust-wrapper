@@ -126,16 +126,10 @@ impl ClientWrapper {
     pub async fn execute(
         &self,
         statement: &PreparedStatement,
-        values: Option<impl SerializeRow + Sync + Send>,
-    ) -> Result<(), QueryError> {
+        values: impl SerializeRow + Sync + Send,
+    ) -> Result<QueryResult, QueryError> {
         let session = self.session.lock().await;
-        // Execute the prepared statement with or without values
-        match values {
-            Some(v) => session.execute(statement, v).await,
-            None => session.execute(statement, ()).await, // Pass an empty tuple if no values are provided
-        }
-        .map(|_| ())
-        .map_err(Into::into)
+        session.execute(statement, values).await
     }
 }
 
